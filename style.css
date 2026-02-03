@@ -1,0 +1,413 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  width: 100%;
+  padding: 0 1rem 1rem;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: #ECEBE7;
+  color: #444;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* Instructions */
+
+#orientation {
+  width: min(700px, 100%);
+  max-width: 700px;
+  padding: 1rem 0;
+  text-align: center;
+}
+
+#toggleInstructions {
+  background: none;
+  border: none;
+  font-size: 0.95rem;
+  cursor: pointer;
+  color: #444;
+  text-decoration: underline;
+}
+
+#instructions {
+  margin-top: 0.75rem;
+  background: #f2f2f2;
+  padding: 1rem 1.25rem;
+  border-radius: 12px;
+  font-size: 0.95rem;
+}
+
+/* App */
+
+#app,
+#resultsView,
+#prioritizeView,
+#finalView {
+  text-align: center;
+  width: min(800px, 100%);
+  margin: 0 auto;
+  padding: clamp(1.25rem, 4vw, 3rem) 0;
+}
+
+#progressContainer,
+#prioritizeProgressContainer {
+  width: min(820px, 100%);
+}
+
+#progressContainer {
+  margin-top: 0.5rem;
+}
+
+#prioritizeProgressContainer {
+  margin: 0.5rem auto 1.5rem;
+}
+
+#progressBar,
+#prioritizeProgressBar {
+  height: 8px;
+  width: 100%;
+  background: #f5f4f1;
+  border: 1px solid #cdd5ca;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+#progressFill,
+#prioritizeProgressFill {
+  height: 100%;
+  width: 0;
+  background: linear-gradient(90deg, #9FAF9B, #b7c5b3);
+  transition: width 0.25s ease;
+}
+
+#word {
+  font-size: 2.75rem;
+  margin-bottom: 2rem;
+  letter-spacing: 0.02em;
+  font-weight: 400;
+  text-align: center;
+}
+
+/* Headings */
+h1, h2 {
+  font-weight: 500;
+  color: #2B2B2B;
+}
+
+h1 {
+  font-size: 3rem;
+}
+
+h2 {
+  text-align: center;
+  font-size: 2rem;
+}
+
+.buttons {
+  width: 100%;
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  align-items: stretch;
+  flex-wrap: wrap;
+}
+
+.buttons button {
+  flex: 1 1 160px;
+  min-width: 0;
+  max-width: 220px;
+}
+
+button {
+  min-height: 48px;
+  padding: 0.875rem 2rem;
+  font-size: 1rem;
+  border-radius: 999px;
+  border: 2px solid #9FAF9B;
+  background: #ECEBE7;
+  cursor: pointer;
+  color: #444;
+  font-weight: 400;
+  transition: all 0.2s ease;
+}
+
+button:hover {
+  background: #9FAF9B;
+  color: #ECEBE7;
+}
+
+/* Animations */
+
+.fade-in {
+  animation: fadeIn 0.35s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Hidden */
+
+.hidden {
+  display: none !important;
+}
+
+#resultsList,
+#finalList {
+  text-align: center;
+  list-style: none;
+  padding: 0;
+  margin-bottom: 2rem;
+}
+
+#resultsList li,
+#finalList li {
+  text-align: center;
+  margin-bottom: 1rem;
+  font-size: 1.1rem;
+  line-height: 1.4;
+  padding: 0.5rem 0;
+}
+
+/* Overlays */
+
+#checkpointOverlay, #saveOverlay, #restartOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(236, 235, 231, 0.9);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.checkpointModal {
+  background: white;
+  width: min(92vw, 420px);
+  padding: 2rem;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+  text-align: center;
+  max-width: 400px;
+}
+
+.checkpointModal p {
+  margin-bottom: 1.5rem;
+  color: #444;
+}
+
+.checkpointButtons {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+}
+
+#footerNav {
+  width: min(860px, 100%);
+  margin-top: 3rem;
+  padding: 1rem 0;
+  font-size: 0.9rem;
+  color: #666;
+  text-align: center;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.35rem 0.85rem;
+}
+
+.footer-link {
+  color: #9FAF9B;
+  text-decoration: underline;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.footer-link:hover {
+  color: #7f8e7b;
+}
+
+/* Checkpoint */
+
+#checkpointOverlay,
+#restartOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.25);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+}
+
+.checkpointModal {
+  background: #f0f0f0;
+  padding: 2rem 2.5rem;
+  border-radius: 20px;
+  text-align: center;
+  box-shadow: 0 20px 50px rgba(0,0,0,0.2);
+}
+
+.checkpointButtons {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+}
+
+/* === PRIORITIZATION BUTTON TEXT FORCE FIX === */
+
+#prioritizeView {
+  color: #111;
+}
+
+#prioritizeView button {
+  color: #111 !important;
+  background: #f5f5f5;
+  border: 2px solid #bbb;
+  min-width: 180px;
+  padding: 0.9rem 1.6rem;
+  font-size: 1.15rem;
+  opacity: 1 !important;
+}
+
+#prioritizeView button span,
+#prioritizeView button * {
+  color: #111 !important;
+  opacity: 1 !important;
+}
+
+@media (max-width: 720px) {
+  #word {
+    font-size: clamp(1.9rem, 9vw, 2.35rem);
+    margin-bottom: 1.25rem;
+  }
+
+  h1 {
+    font-size: clamp(2rem, 11vw, 2.5rem);
+  }
+
+  h2 {
+    font-size: clamp(1.45rem, 7vw, 1.8rem);
+  }
+
+  #instructions {
+    padding: 0.9rem 1rem;
+  }
+
+  .buttons {
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .buttons button,
+  #prioritizeView button {
+    width: 100%;
+    max-width: none;
+    min-width: 0;
+  }
+
+  button {
+    padding: 0.85rem 1.2rem;
+  }
+
+  #startBtn {
+    width: min(420px, 100%);
+  }
+
+  #progressContainer,
+  #prioritizeProgressContainer {
+    width: 100%;
+  }
+
+  .checkpointModal {
+    padding: 1.35rem 1.1rem;
+    border-radius: 16px;
+  }
+
+  .checkpointButtons {
+    flex-direction: column;
+    gap: 0.7rem;
+  }
+
+  .checkpointButtons button {
+    width: 100%;
+  }
+
+  #footerNav {
+    margin-top: 2rem;
+    gap: 0.35rem 0.7rem;
+  }
+}
+
+/* Print styles */
+@media print {
+  body {
+    background: white !important;
+    color: black !important;
+  }
+
+  #orientation,
+  #app,
+  #prioritizeView,
+  #progressContainer,
+  #prioritizeProgressContainer,
+  #checkpointOverlay,
+  #saveOverlay,
+  #restartOverlay,
+  footer,
+  button,
+  .disclaimer {
+    display: none !important;
+  }
+
+  #resultsView,
+  #finalView {
+    max-width: 600px;
+    margin: 0 auto;
+    padding: 0;
+  }
+
+  #resultsView.hidden,
+  #finalView.hidden {
+    display: none !important;
+  }
+
+  #resultsView:not(.hidden),
+  #finalView:not(.hidden) {
+    display: block !important;
+  }
+
+  #resultsView:not(.hidden) h2,
+  #finalView:not(.hidden) h2 {
+    font-size: 24px;
+    margin-bottom: 20px;
+    text-align: center !important;
+  }
+
+  #resultsList,
+  #finalList {
+    font-size: 18px;
+    line-height: 1.6;
+    padding-left: 0;
+    text-align: center;
+  }
+
+  #resultsList li,
+  #finalList li {
+    margin-bottom: 15px;
+    text-align: center !important;
+  }
+}
