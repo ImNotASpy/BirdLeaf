@@ -27,29 +27,36 @@
         Answer based on what feels important <em>right now</em>.<br><br>
         Go with your first, honest response.
       </p>
+
+      <p><em>Your progress autosaves on this device.</em></p>
     </div>
   </div>
 
   <!-- START SCREEN -->
   <button id="startBtn">Start/Continue</button>
 
-  <div id="progressContainer" class="hidden">
-    <div
-      id="progressBar"
-      role="progressbar"
-      aria-label="Progress"
-      aria-valuemin="0"
-      aria-valuemax="100"
-      aria-valuenow="0"
-    >
-      <div id="progressFill"></div>
-    </div>
-  </div>
-
   <!-- MAIN APP -->
   <div id="app" class="hidden">
 
+    <div id="contextFrame">
+      <button id="contextToggleBtn" class="contextToggle" type="button" aria-expanded="false" aria-controls="contextPanel">Context</button>
+      <p id="contextSelection" class="contextSelection hidden">
+        I'm reflecting on: <span id="contextSelectionValue"></span>
+      </p>
+      <div id="contextPanel" class="contextPanel hidden">
+        <p class="contextLabel">I'm reflecting on:</p>
+        <div class="contextOptions">
+          <button type="button" class="contextOption" data-context-value="Life">Life</button>
+          <button type="button" class="contextOption" data-context-value="Work">Work</button>
+          <button type="button" class="contextOption" data-context-value="Relationships">Relationships</button>
+          <button type="button" class="contextOption" data-context-value="Something specific">Something specific</button>
+        </div>
+        <button id="contextCloseBtn" class="contextClose" type="button">Close</button>
+      </div>
+    </div>
+
     <h1 id="word" class="hidden"></h1>
+    <p id="breathPause" class="hidden">Pause for one breath.</p>
 
     <div class="buttons hidden" id="mainButtons">
       <button id="feelsBtn">Feels important</button>
@@ -70,16 +77,6 @@
     </div>
   </div>
 
-  <!-- SAVE CONFIRMATION OVERLAY -->
-  <div id="saveOverlay" class="hidden">
-    <div class="checkpointModal">
-      <p>Progress saved! You can come back to this page at any time.</p>
-      <div class="checkpointButtons">
-        <button id="saveOkBtn">OK</button>
-      </div>
-    </div>
-  </div>
-
   <!-- RESTART CONFIRMATION OVERLAY -->
   <div id="restartOverlay" class="hidden">
     <div class="checkpointModal">
@@ -93,15 +90,23 @@
 
   <!-- RESULTS -->
   <div id="resultsView" class="hidden">
-    <h2>Your Values</h2>
+    <h2>My Values</h2>
 
     <ul id="resultsList"></ul>
+
+    <div class="reflectArea">
+      <button id="reflectBtnResults">Reflection</button>
+      <div id="reflectCardResults" class="reflectCard hidden">
+        <p id="reflectPromptResults" class="reflectPrompt"></p>
+        <button id="reflectCloseResults" class="reflectClose">Close</button>
+      </div>
+    </div>
 
     <p class="disclaimer" style="font-style: italic;">
       These values are not in any particular order.
     </p>
 
-    <div class="buttons">
+    <div class="buttons outputActions">
       <button id="prioritizeBtn">Prioritize</button>
       <button id="resultsPrintBtn">Print / PDF</button>
     </div>
@@ -111,19 +116,6 @@
   <div id="prioritizeView" class="hidden">
     <h2>What is more important to you right now?</h2>
 
-    <div id="prioritizeProgressContainer">
-      <div
-        id="prioritizeProgressBar"
-        role="progressbar"
-        aria-label="Prioritization progress"
-        aria-valuemin="0"
-        aria-valuemax="100"
-        aria-valuenow="0"
-      >
-        <div id="prioritizeProgressFill"></div>
-      </div>
-    </div>
-
     <div class="buttons">
       <button id="optionA"></button>
       <button id="optionB"></button>
@@ -132,13 +124,13 @@
 
   <!-- FINAL -->
   <div id="finalView" class="hidden">
-    <h2>Your Values</h2>
+    <h2>My Values</h2>
     <ol id="finalList"></ol>
     <p class="disclaimer" style="font-style: italic;">
       These are listed in order of what feels most important to you right now.
     </p>
 
-    <div class="buttons">
+    <div class="buttons outputActions">
       <button id="printBtn">Print / Save PDF</button>
     </div>
   </div>
@@ -146,7 +138,7 @@
   <footer id="footerNav">
     <a href="about.html" onclick="window.saveProgressForInfoNav && window.saveProgressForInfoNav()" class="footer-link">About</a>
     <a href="instructions.html" onclick="window.saveProgressForInfoNav && window.saveProgressForInfoNav()" class="footer-link">Instructions</a>
-    <span id="saveBtn" class="footer-link">Save Progress</span>
+    <span class="footer-note">Autosaves on this device</span>
     <span id="footerRestartBtn" class="footer-link">Start Over</span>
   </footer>
 

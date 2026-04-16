@@ -53,43 +53,103 @@ body {
   padding: clamp(1.25rem, 4vw, 3rem) 0;
 }
 
-#progressContainer,
-#prioritizeProgressContainer {
-  width: min(820px, 100%);
-}
-
-#progressContainer {
-  margin-top: 0.5rem;
-}
-
-#prioritizeProgressContainer {
-  margin: 0.5rem auto 1.5rem;
-}
-
-#progressBar,
-#prioritizeProgressBar {
-  height: 8px;
-  width: 100%;
-  background: #f5f4f1;
-  border: 1px solid #cdd5ca;
-  border-radius: 999px;
-  overflow: hidden;
-}
-
-#progressFill,
-#prioritizeProgressFill {
-  height: 100%;
-  width: 0;
-  background: linear-gradient(90deg, #9FAF9B, #b7c5b3);
-  transition: width 0.25s ease;
-}
-
 #word {
   font-size: 2.75rem;
   margin-bottom: 2rem;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.01em;
   font-weight: 400;
   text-align: center;
+}
+
+#breathPause {
+  margin: -0.6rem 0 1.2rem;
+  color: #6f6f6f;
+  font-size: 0.95rem;
+}
+
+#contextFrame {
+  width: min(700px, 100%);
+  margin: 0 auto 6rem;
+  text-align: center;
+}
+
+.contextToggle {
+  min-height: 34px;
+  padding: 0.4rem 0.9rem;
+  font-size: 0.86rem;
+  border-radius: 999px;
+  border: 1px solid #bfc9bc;
+  background: #f1f0ec;
+}
+
+.contextToggle:hover {
+  background: #e8e7e1;
+  color: #444;
+}
+
+.contextSelection {
+  margin: 0.5rem 0 0;
+  color: #666;
+  font-size: 0.9rem;
+}
+
+.contextPanel {
+  margin-top: 0.55rem;
+  padding: 0.8rem 0.9rem;
+  border: 1px solid #cfd7cc;
+  border-radius: 12px;
+  background: #f5f4f1;
+  text-align: center;
+}
+
+.contextLabel {
+  margin: 0 0 0.55rem;
+  color: #666;
+  font-size: 0.9rem;
+}
+
+.contextOptions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: center;
+}
+
+.contextOption {
+  min-height: 34px;
+  padding: 0.4rem 0.9rem;
+  font-size: 0.9rem;
+  border-radius: 999px;
+  border: 1px solid #b7c2b4;
+  background: #ecebe7;
+  color: #444;
+}
+
+.contextOption.selected {
+  background: #9FAF9B;
+  border-color: #8d9c89;
+  color: #ecebe7;
+}
+
+.contextOption:hover,
+.contextClose:hover {
+  background: #e5e4df;
+  color: #444;
+}
+
+.contextOption.selected:hover {
+  background: #94a590;
+  color: #ecebe7;
+}
+
+.contextClose {
+  margin-top: 0.65rem;
+  min-height: 34px;
+  padding: 0.4rem 0.95rem;
+  font-size: 0.85rem;
+  border-radius: 999px;
+  border: 1px solid #c8cec2;
+  background: #efeee9;
 }
 
 /* Headings */
@@ -132,12 +192,23 @@ button {
   cursor: pointer;
   color: #444;
   font-weight: 400;
-  transition: all 0.2s ease;
+  transition:
+    background-color 0.14s ease,
+    border-color 0.14s ease,
+    color 0.14s ease,
+    transform 0.08s ease;
 }
 
 button:hover {
   background: #9FAF9B;
   color: #ECEBE7;
+}
+
+button:active {
+  background: #dbdad5;
+  border-color: #8d9c89;
+  color: #3a3a3a;
+  transform: translateY(1px) scale(0.985);
 }
 
 /* Animations */
@@ -174,15 +245,64 @@ button:hover {
 #resultsList li,
 #finalList li {
   text-align: center;
-  margin-bottom: 1rem;
+  margin-bottom: 0.8rem;
   font-size: 1.1rem;
+  line-height: 1.35;
+  padding: 0.35rem 0;
+}
+
+.disclaimer {
+  margin-top: 1.1rem;
+}
+
+.outputActions {
+  margin-top: 0.85rem;
+}
+
+#finalView #finalList {
+  margin-bottom: 2.9rem;
+}
+
+#finalView .disclaimer {
+  margin-top: 1.4rem;
+  margin-bottom: 1.9rem;
+}
+
+#finalView .outputActions {
+  margin-top: 1.35rem;
+}
+
+.reflectArea {
+  width: min(640px, 100%);
+  margin: 0 auto 1.25rem;
+  text-align: center;
+}
+
+.reflectCard {
+  margin-top: 0.85rem;
+  padding: 1rem 1.1rem;
+  border: 1px solid #cdd5ca;
+  border-radius: 14px;
+  background: #f5f4f1;
+  text-align: center;
+}
+
+.reflectPrompt {
+  margin: 0 0 0.85rem;
+  color: #2b2b2b;
+  font-size: 1.05rem;
   line-height: 1.4;
-  padding: 0.5rem 0;
+}
+
+.reflectClose {
+  margin-top: 0.8rem;
+  min-height: 42px;
+  padding: 0.65rem 1.25rem;
 }
 
 /* Overlays */
 
-#checkpointOverlay, #saveOverlay, #restartOverlay {
+#checkpointOverlay, #restartOverlay {
   position: fixed;
   top: 0;
   left: 0;
@@ -240,6 +360,11 @@ button:hover {
   color: #7f8e7b;
 }
 
+.footer-note {
+  color: #666;
+  white-space: nowrap;
+}
+
 /* Checkpoint */
 
 #checkpointOverlay,
@@ -271,6 +396,15 @@ button:hover {
 
 #prioritizeView {
   color: #111;
+  padding-top: clamp(5rem, 16vh, 8rem);
+}
+
+#prioritizeView h2 {
+  margin-top: 0;
+}
+
+#prioritizeView .buttons {
+  margin-top: 2.2rem;
 }
 
 #prioritizeView button {
@@ -287,6 +421,12 @@ button:hover {
 #prioritizeView button * {
   color: #111 !important;
   opacity: 1 !important;
+}
+
+#prioritizeView button:active {
+  background: #e7e7e7;
+  border-color: #9f9f9f;
+  transform: translateY(1px) scale(0.985);
 }
 
 @media (max-width: 720px) {
@@ -327,11 +467,6 @@ button:hover {
     width: min(420px, 100%);
   }
 
-  #progressContainer,
-  #prioritizeProgressContainer {
-    width: 100%;
-  }
-
   .checkpointModal {
     padding: 1.35rem 1.1rem;
     border-radius: 16px;
@@ -362,10 +497,8 @@ button:hover {
   #orientation,
   #app,
   #prioritizeView,
-  #progressContainer,
-  #prioritizeProgressContainer,
+  .reflectArea,
   #checkpointOverlay,
-  #saveOverlay,
   #restartOverlay,
   footer,
   button,

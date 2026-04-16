@@ -8,11 +8,16 @@ document.addEventListener("DOMContentLoaded", () => {
   /* DOM */
   const startBtn = document.getElementById("startBtn");
   const orientation = document.getElementById("orientation");
-  const progressContainer = document.getElementById("progressContainer");
-  const progressBar = document.getElementById("progressBar");
-  const progressFill = document.getElementById("progressFill");
   const app = document.getElementById("app");
+  const contextFrame = document.getElementById("contextFrame");
+  const contextToggleBtn = document.getElementById("contextToggleBtn");
+  const contextSelection = document.getElementById("contextSelection");
+  const contextSelectionValue = document.getElementById("contextSelectionValue");
+  const contextPanel = document.getElementById("contextPanel");
+  const contextCloseBtn = document.getElementById("contextCloseBtn");
+  const contextOptionBtns = Array.from(document.querySelectorAll(".contextOption"));
   const wordEl = document.getElementById("word");
+  const breathPauseEl = document.getElementById("breathPause");
   const mainButtons = document.getElementById("mainButtons");
 
   const feelsBtn = document.getElementById("feelsBtn");
@@ -23,8 +28,6 @@ document.addEventListener("DOMContentLoaded", () => {
   const revisitBtn = document.getElementById("revisitBtn");
   const keepGoingBtn = document.getElementById("keepGoingBtn");
 
-  const saveOverlay = document.getElementById("saveOverlay");
-  const saveOkBtn = document.getElementById("saveOkBtn");
   const restartOverlay = document.getElementById("restartOverlay");
   const restartConfirmBtn = document.getElementById("restartConfirmBtn");
   const restartCancelBtn = document.getElementById("restartCancelBtn");
@@ -36,8 +39,6 @@ document.addEventListener("DOMContentLoaded", () => {
   const resultsPrintBtn = document.getElementById("resultsPrintBtn");
 
   const prioritizeView = document.getElementById("prioritizeView");
-  const prioritizeProgressBar = document.getElementById("prioritizeProgressBar");
-  const prioritizeProgressFill = document.getElementById("prioritizeProgressFill");
   const optionABtn = document.getElementById("optionA");
   const optionBBtn = document.getElementById("optionB");
 
@@ -45,13 +46,33 @@ document.addEventListener("DOMContentLoaded", () => {
   const finalList = document.getElementById("finalList");
   const printBtn = document.getElementById("printBtn");
 
-  const saveBtn = document.getElementById("saveBtn");
+  const reflectBtnResults = document.getElementById("reflectBtnResults");
+  const reflectCardResults = document.getElementById("reflectCardResults");
+  const reflectPromptResults = document.getElementById("reflectPromptResults");
+  const reflectCloseResults = document.getElementById("reflectCloseResults");
+
   const footerRestartBtn = document.getElementById("footerRestartBtn");
   const RETURN_TO_START_KEY = "birdleaf-return-start";
   const PROGRESS_STORAGE_KEY = "birdleaf-progress";
+  const CONTEXT_STORAGE_KEY = "birdleaf-reflection-context";
+  const BREATH_PAUSE_TRIGGER_KEY = "birdleaf-breath-pause-trigger";
+  const BREATH_PAUSE_SHOWN_KEY = "birdleaf-breath-pause-shown";
   const SAVE_SCHEMA_VERSION = 2;
   const START_LABEL = "Start/Continue";
   const CONTINUE_LABEL = "Start/Continue";
+  const PHASE_TRANSITION_DELAY_MS = 340;
+  const REFLECT_PROMPTS = [
+    "Which value feels most alive right now?",
+    "Which one feels tender or vulnerable?",
+    "Which value do you protect the most?",
+    "Which one feels hardest to live by lately?",
+    "Which value feels new?",
+    "Which one feels steady, like it has always been there?",
+    "Which value shows up in your body first?",
+    "Which value do you wish you had more space for?",
+    "Which value feels quiet but present right now?",
+    "Which value feels like it needs your gentleness today?"
+  ];
 
   /* DATA */
   let hasSavedWordProgress = false;
@@ -92,7 +113,21 @@ document.addEventListener("DOMContentLoaded", () => {
   let displayedOptionB = null;
   let finalRanking = null;
   let autoSaveSuspended = false;
+  let breathPauseTriggerIndex = null;
+  let hasShownBreathPause = sessionStorage.getItem(BREATH_PAUSE_SHOWN_KEY) === "1";
+  let lastReflectPrompt = null;
+  let selectedContext = null;
+  let phaseTransitionTimeoutId = null;
+  let phaseTransitionNonce = 0;
   const wordLastSide = new Map();
+  const reflectPanels = {
+    results: {
+      button: reflectBtnResults,
+      card: reflectCardResults,
+      prompt: reflectPromptResults,
+      close: reflectCloseResults
+    }
+  };
 
   loadProgress();
 
@@ -112,6 +147,9 @@ document.addEventListener("DOMContentLoaded", () => {
     saveProgress();
   });
 
+  setupReflectControls();
+  setupContextControls();
+
   /* START */
   startBtn.onclick = () => {
     // If we intentionally returned to the start screen from About/Instructions,
@@ -123,22 +161,28 @@ document.addEventListener("DOMContentLoaded", () => {
 
     state.mode = "words";
     finalRanking = null;
-    showWordScreen();
-    updateProgress();
-    renderWord();
-    saveProgress();
+    runPhaseTransition(() => {
+      showWordScreen();
+      renderWord();
+      saveProgress();
+    });
   };
 
   /* WORD PHASE */
   function renderWord() {
-    updateProgress();
+    hideBreathPause();
 
     if (!words || !Array.isArray(words) || words.length === 0) {
       wordEl.textContent = "Error: No words loaded";
       return;
     }
+
+    ensureBreathPauseTrigger();
+
     if (state.currentIndex >= words.length) {
-      showResults();
+      runPhaseTransition(() => {
+        showResults();
+      });
       return;
     }
     const currentWord = words[state.currentIndex];
@@ -159,9 +203,15 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function handleAnswer(delta) {
-    const { value } = words[state.currentIndex];
+    const answeredIndex = state.currentIndex;
+    const { value } = words[answeredIndex];
     answerCurrentWord(value, delta);
     renderWord();
+
+    if (answeredIndex === breathPauseTriggerIndex) {
+      showBreathPause();
+    }
+
     saveProgress();
   }
 
@@ -180,14 +230,11 @@ document.addEventListener("DOMContentLoaded", () => {
     checkpointOverlay.classList.add("hidden");
   };
 
-  saveOkBtn.onclick = () => {
-    saveOverlay.classList.add("hidden");
-  };
-
   resultsPrintBtn.onclick = () => window.print();
 
   /* RESULTS */
   function showResults() {
+    cancelPhaseTransition();
     state.mode = "results";
     prioritizer = null;
     currentComparison = null;
@@ -199,7 +246,6 @@ document.addEventListener("DOMContentLoaded", () => {
     hideTransientOverlays();
     startBtn.classList.add("hidden");
     orientation.classList.add("hidden");
-    progressContainer.classList.add("hidden");
     app.classList.add("hidden");
     wordEl.classList.add("hidden");
     mainButtons.classList.add("hidden");
@@ -221,6 +267,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     resultsView.classList.remove("hidden");
+    fadeInPhase(resultsView);
     saveProgress();
   }
 
@@ -234,10 +281,10 @@ document.addEventListener("DOMContentLoaded", () => {
     currentComparison = null;
     displayedOptionA = null;
     displayedOptionB = null;
-
-    showPrioritizeScreen();
-
-    nextComparison();
+    runPhaseTransition(() => {
+      showPrioritizeScreen();
+      nextComparison();
+    });
   };
 
   function nextComparison() {
@@ -245,10 +292,11 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    updatePrioritizationProgress();
     currentComparison = prioritizer.getNextComparison();
     if (!currentComparison) {
-      showFinal();
+      runPhaseTransition(() => {
+        showFinal();
+      });
       return;
     }
 
@@ -312,11 +360,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
   /* FINAL */
   function showFinal(ranking = null) {
+    cancelPhaseTransition();
     state.mode = "final";
     hideTransientOverlays();
     startBtn.classList.add("hidden");
     orientation.classList.add("hidden");
-    progressContainer.classList.add("hidden");
     app.classList.add("hidden");
     wordEl.classList.add("hidden");
     mainButtons.classList.add("hidden");
@@ -329,6 +377,7 @@ document.addEventListener("DOMContentLoaded", () => {
       : (prioritizer ? prioritizer.finalize() : []);
 
     renderFinalRanking(finalRanking);
+    fadeInPhase(finalView);
     saveProgress();
   }
 
@@ -344,10 +393,174 @@ document.addEventListener("DOMContentLoaded", () => {
 
   printBtn.onclick = () => window.print();
 
-  saveBtn.onclick = () => {
-    saveProgress({ force: true });
-    saveOverlay.classList.remove("hidden");
-  };
+  function setupReflectControls() {
+    Object.entries(reflectPanels).forEach(([panelKey, panel]) => {
+      if (!panel.button || !panel.close) {
+        return;
+      }
+
+      panel.button.onclick = () => {
+        openReflectPanel(panelKey, panel);
+      };
+
+      panel.close.onclick = () => {
+        closeReflectPanel(panelKey, panel);
+      };
+    });
+  }
+
+  function pickReflectPrompt() {
+    if (REFLECT_PROMPTS.length === 0) {
+      return "";
+    }
+
+    if (REFLECT_PROMPTS.length === 1) {
+      lastReflectPrompt = REFLECT_PROMPTS[0];
+      return lastReflectPrompt;
+    }
+
+    let prompt = REFLECT_PROMPTS[Math.floor(Math.random() * REFLECT_PROMPTS.length)];
+    if (prompt === lastReflectPrompt) {
+      const alternatives = REFLECT_PROMPTS.filter(item => item !== lastReflectPrompt);
+      prompt = alternatives[Math.floor(Math.random() * alternatives.length)];
+    }
+
+    lastReflectPrompt = prompt;
+    return prompt;
+  }
+
+  function openReflectPanel(panelKey, panel) {
+    if (!panel.card || !panel.prompt) {
+      return;
+    }
+
+    panel.prompt.textContent = pickReflectPrompt();
+    panel.card.classList.remove("hidden");
+    panel.card.classList.remove("fade-in");
+    void panel.card.offsetWidth;
+    panel.card.classList.add("fade-in");
+  }
+
+  function closeReflectPanel(panelKey, panel) {
+    if (!panel.card) {
+      return;
+    }
+
+    panel.card.classList.add("hidden");
+  }
+
+  function resetReflectPanels() {
+    Object.values(reflectPanels).forEach((panel) => {
+      if (panel.card) {
+        panel.card.classList.add("hidden");
+      }
+      if (panel.prompt) {
+        panel.prompt.textContent = "";
+      }
+    });
+  }
+
+  function setupContextControls() {
+    if (!contextFrame || !contextToggleBtn || !contextPanel) {
+      return;
+    }
+
+    selectedContext = loadSavedContext();
+    updateContextUI();
+    setContextPanelOpen(false);
+
+    contextToggleBtn.onclick = () => {
+      const shouldOpen = contextPanel.classList.contains("hidden");
+      setContextPanelOpen(shouldOpen);
+    };
+
+    if (contextCloseBtn) {
+      contextCloseBtn.onclick = () => {
+        setContextPanelOpen(false);
+      };
+    }
+
+    contextOptionBtns.forEach((button) => {
+      button.onclick = () => {
+        const nextContext = typeof button.dataset.contextValue === "string"
+          ? button.dataset.contextValue.trim()
+          : "";
+
+        if (!nextContext) {
+          return;
+        }
+
+        if (selectedContext === nextContext) {
+          selectedContext = null;
+        } else {
+          selectedContext = nextContext;
+        }
+
+        saveSelectedContext();
+        updateContextUI();
+        setContextPanelOpen(false);
+      };
+    });
+  }
+
+  function setContextPanelOpen(isOpen) {
+    if (!contextPanel || !contextToggleBtn) {
+      return;
+    }
+
+    if (isOpen) {
+      contextPanel.classList.remove("hidden");
+    } else {
+      contextPanel.classList.add("hidden");
+    }
+
+    contextToggleBtn.setAttribute("aria-expanded", isOpen ? "true" : "false");
+  }
+
+  function updateContextUI() {
+    const hasContext = typeof selectedContext === "string" && selectedContext.length > 0;
+
+    if (contextSelection && contextSelectionValue) {
+      if (hasContext) {
+        contextSelectionValue.textContent = selectedContext;
+        contextSelection.classList.remove("hidden");
+      } else {
+        contextSelectionValue.textContent = "";
+        contextSelection.classList.add("hidden");
+      }
+    }
+
+    contextOptionBtns.forEach((button) => {
+      const value = typeof button.dataset.contextValue === "string"
+        ? button.dataset.contextValue
+        : "";
+      const isSelected = hasContext && value === selectedContext;
+      button.classList.toggle("selected", isSelected);
+      button.setAttribute("aria-pressed", isSelected ? "true" : "false");
+    });
+  }
+
+  function loadSavedContext() {
+    try {
+      const saved = localStorage.getItem(CONTEXT_STORAGE_KEY);
+      return (typeof saved === "string" && saved.trim().length > 0) ? saved.trim() : null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function saveSelectedContext() {
+    try {
+      if (typeof selectedContext === "string" && selectedContext.length > 0) {
+        localStorage.setItem(CONTEXT_STORAGE_KEY, selectedContext);
+      } else {
+        localStorage.removeItem(CONTEXT_STORAGE_KEY);
+      }
+    } catch (e) {
+      // Ignore persistence failures to keep flow uninterrupted.
+    }
+  }
+
   footerRestartBtn.onclick = confirmRestart;
   restartConfirmBtn.onclick = performRestart;
   restartCancelBtn.onclick = () => {
@@ -359,8 +572,8 @@ document.addEventListener("DOMContentLoaded", () => {
     sessionStorage.setItem(RETURN_TO_START_KEY, "1");
   }
 
-  function saveProgress(options = {}) {
-    if (autoSaveSuspended && !options.force) {
+  function saveProgress() {
+    if (autoSaveSuspended) {
       return;
     }
 
@@ -412,36 +625,113 @@ document.addEventListener("DOMContentLoaded", () => {
     startBtn.textContent = hasSavedWordProgress ? CONTINUE_LABEL : START_LABEL;
   }
 
-  function updateProgress() {
-    const total = Array.isArray(words) ? words.length : 0;
-    const percentage = total > 0
-      ? Math.min(100, Math.max(0, (state.currentIndex / total) * 100))
-      : 0;
-
-    progressFill.style.width = `${percentage}%`;
-    progressBar.setAttribute("aria-valuenow", String(Math.round(percentage)));
-  }
-
-  function updatePrioritizationProgress() {
-    if (!prioritizer) {
-      prioritizeProgressFill.style.width = "0%";
-      prioritizeProgressBar.setAttribute("aria-valuenow", "0");
+  function ensureBreathPauseTrigger() {
+    if (hasShownBreathPause || !Array.isArray(words) || words.length < 2) {
       return;
     }
 
-    const { completed, total } = prioritizer.getProgress();
-    const percentage = total > 0 ? (completed / total) * 100 : 100;
-    const boundedPercentage = Math.min(100, Math.max(0, percentage));
+    const maxTriggerIndex = words.length - 2;
+    const minTriggerIndex = Math.min(Math.max(0, state.currentIndex), maxTriggerIndex);
 
-    prioritizeProgressFill.style.width = `${boundedPercentage}%`;
-    prioritizeProgressBar.setAttribute("aria-valuenow", String(Math.round(boundedPercentage)));
+    if (
+      Number.isInteger(breathPauseTriggerIndex) &&
+      breathPauseTriggerIndex >= minTriggerIndex &&
+      breathPauseTriggerIndex <= maxTriggerIndex
+    ) {
+      return;
+    }
+
+    const savedTrigger = Number.parseInt(sessionStorage.getItem(BREATH_PAUSE_TRIGGER_KEY) || "", 10);
+    if (
+      Number.isInteger(savedTrigger) &&
+      savedTrigger >= minTriggerIndex &&
+      savedTrigger <= maxTriggerIndex
+    ) {
+      breathPauseTriggerIndex = savedTrigger;
+      return;
+    }
+
+    breathPauseTriggerIndex = randomInt(minTriggerIndex, maxTriggerIndex);
+    sessionStorage.setItem(BREATH_PAUSE_TRIGGER_KEY, String(breathPauseTriggerIndex));
+  }
+
+  function showBreathPause() {
+    if (hasShownBreathPause || !breathPauseEl) {
+      return;
+    }
+
+    hasShownBreathPause = true;
+    sessionStorage.setItem(BREATH_PAUSE_SHOWN_KEY, "1");
+    breathPauseEl.classList.remove("hidden");
+  }
+
+  function hideBreathPause() {
+    if (!breathPauseEl) {
+      return;
+    }
+    breathPauseEl.classList.add("hidden");
+  }
+
+  function randomInt(min, max) {
+    return Math.floor(Math.random() * (max - min + 1)) + min;
+  }
+
+  function runPhaseTransition(showNextPhase) {
+    if (typeof showNextPhase !== "function") {
+      return;
+    }
+
+    cancelPhaseTransition();
+    hideTransientOverlays();
+    hidePrimaryViewsForTransition();
+
+    const activeNonce = phaseTransitionNonce;
+    phaseTransitionTimeoutId = setTimeout(() => {
+      if (activeNonce !== phaseTransitionNonce) {
+        return;
+      }
+
+      phaseTransitionTimeoutId = null;
+      showNextPhase();
+    }, PHASE_TRANSITION_DELAY_MS);
+  }
+
+  function cancelPhaseTransition() {
+    if (phaseTransitionTimeoutId) {
+      clearTimeout(phaseTransitionTimeoutId);
+      phaseTransitionTimeoutId = null;
+    }
+
+    phaseTransitionNonce += 1;
+  }
+
+  function hidePrimaryViewsForTransition() {
+    startBtn.classList.add("hidden");
+    orientation.classList.add("hidden");
+    app.classList.add("hidden");
+    wordEl.classList.add("hidden");
+    mainButtons.classList.add("hidden");
+    resultsView.classList.add("hidden");
+    prioritizeView.classList.add("hidden");
+    finalView.classList.add("hidden");
+    hideBreathPause();
+  }
+
+  function fadeInPhase(element) {
+    if (!element) {
+      return;
+    }
+
+    element.classList.remove("fade-in");
+    void element.offsetWidth;
+    element.classList.add("fade-in");
   }
 
   function showWordScreen() {
+    cancelPhaseTransition();
     hideTransientOverlays();
     startBtn.classList.add("hidden");
     orientation.classList.add("hidden");
-    progressContainer.classList.remove("hidden");
 
     app.classList.remove("hidden");
     wordEl.classList.remove("hidden");
@@ -449,27 +739,29 @@ document.addEventListener("DOMContentLoaded", () => {
     resultsView.classList.add("hidden");
     prioritizeView.classList.add("hidden");
     finalView.classList.add("hidden");
+    fadeInPhase(app);
   }
 
   function showPrioritizeScreen() {
+    cancelPhaseTransition();
     hideTransientOverlays();
     startBtn.classList.add("hidden");
     orientation.classList.add("hidden");
-    progressContainer.classList.add("hidden");
     app.classList.add("hidden");
     wordEl.classList.add("hidden");
     mainButtons.classList.add("hidden");
     resultsView.classList.add("hidden");
     finalView.classList.add("hidden");
     prioritizeView.classList.remove("hidden");
+    fadeInPhase(prioritizeView);
   }
 
   function showStartScreen() {
+    cancelPhaseTransition();
     hideTransientOverlays();
     updateStartButtonLabel();
     startBtn.classList.remove("hidden");
     orientation.classList.remove("hidden");
-    progressContainer.classList.add("hidden");
 
     app.classList.add("hidden");
     wordEl.classList.add("hidden");
@@ -477,12 +769,16 @@ document.addEventListener("DOMContentLoaded", () => {
     resultsView.classList.add("hidden");
     prioritizeView.classList.add("hidden");
     finalView.classList.add("hidden");
+    fadeInPhase(orientation);
+    fadeInPhase(startBtn);
   }
 
   function hideTransientOverlays() {
     checkpointOverlay.classList.add("hidden");
-    saveOverlay.classList.add("hidden");
     restartOverlay.classList.add("hidden");
+    hideBreathPause();
+    setContextPanelOpen(false);
+    resetReflectPanels();
   }
 
   function isComparisonEntry(value) {
@@ -589,7 +885,6 @@ document.addEventListener("DOMContentLoaded", () => {
     optionBBtn.textContent = displayedOptionB;
 
     showPrioritizeScreen();
-    updatePrioritizationProgress();
     saveProgress();
     return true;
   }
@@ -625,7 +920,6 @@ document.addEventListener("DOMContentLoaded", () => {
           // Restore UI based on mode
           if (state.mode === "words") {
             showWordScreen();
-            updateProgress();
             renderWord();
           } else if (state.mode === "results") {
             showResults();
