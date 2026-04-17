@@ -33,7 +33,11 @@
   </div>
 
   <!-- START SCREEN -->
-  <button id="startBtn">Start/Continue</button>
+  <div id="startOptions">
+    <button id="startQuickBtn" class="startModeBtn">Quick</button>
+    <button id="startFullBtn" class="startModeBtn">Full</button>
+  </div>
+  <button id="startBtn" class="hidden">Start/Continue</button>
 
   <!-- MAIN APP -->
   <div id="app" class="hidden">
@@ -49,7 +53,9 @@
           <button type="button" class="contextOption" data-context-value="Life">Life</button>
           <button type="button" class="contextOption" data-context-value="Work">Work</button>
           <button type="button" class="contextOption" data-context-value="Relationships">Relationships</button>
-          <button type="button" class="contextOption" data-context-value="Something specific">Something specific</button>
+        </div>
+        <div class="contextCustom">
+          <input type="text" id="contextCustomInput" class="contextCustomInput" placeholder="Or type your own..." maxlength="30">
         </div>
         <button id="contextCloseBtn" class="contextClose" type="button">Close</button>
       </div>
@@ -59,15 +65,15 @@
     <p id="breathPause" class="hidden">Pause for one breath.</p>
 
     <div class="buttons hidden" id="mainButtons">
-      <button id="feelsBtn">Feels important</button>
-      <button id="neutralBtn">Neutral</button>
-      <button id="notBtn">Not for me</button>
+      <button id="feelsBtn">Keep</button>
+      <button id="notBtn">Delete</button>
+      <button id="prevBtn" class="secondary" style="visibility: hidden;">Previous</button>
     </div>
 
   </div>
 
-  <!-- CHECKPOINT OVERLAY -->
-  <div id="checkpointOverlay" class="hidden">
+  <!-- CHECKPOINT OVERLAY (Premium feature - disabled for now) -->
+  <!-- <div id="checkpointOverlay" class="hidden">
     <div class="checkpointModal">
       <p>Want to revisit your last 50 words?</p>
       <div class="checkpointButtons">
@@ -75,7 +81,7 @@
         <button id="keepGoingBtn">Keep going</button>
       </div>
     </div>
-  </div>
+  </div> -->
 
   <!-- RESTART CONFIRMATION OVERLAY -->
   <div id="restartOverlay" class="hidden">

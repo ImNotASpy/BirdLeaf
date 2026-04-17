@@ -7,6 +7,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
   /* DOM */
   const startBtn = document.getElementById("startBtn");
+  const startOptions = document.getElementById("startOptions");
+  const startQuickBtn = document.getElementById("startQuickBtn");
+  const startFullBtn = document.getElementById("startFullBtn");
   const orientation = document.getElementById("orientation");
   const app = document.getElementById("app");
   const contextFrame = document.getElementById("contextFrame");
@@ -15,18 +18,19 @@ document.addEventListener("DOMContentLoaded", () => {
   const contextSelectionValue = document.getElementById("contextSelectionValue");
   const contextPanel = document.getElementById("contextPanel");
   const contextCloseBtn = document.getElementById("contextCloseBtn");
+  const contextCustomInput = document.getElementById("contextCustomInput");
   const contextOptionBtns = Array.from(document.querySelectorAll(".contextOption"));
   const wordEl = document.getElementById("word");
   const breathPauseEl = document.getElementById("breathPause");
   const mainButtons = document.getElementById("mainButtons");
 
   const feelsBtn = document.getElementById("feelsBtn");
-  const neutralBtn = document.getElementById("neutralBtn");
   const notBtn = document.getElementById("notBtn");
+  const prevBtn = document.getElementById("prevBtn");
 
-  const checkpointOverlay = document.getElementById("checkpointOverlay");
-  const revisitBtn = document.getElementById("revisitBtn");
-  const keepGoingBtn = document.getElementById("keepGoingBtn");
+  // const checkpointOverlay = document.getElementById("checkpointOverlay"); // TODO: Premium feature
+  // const revisitBtn = document.getElementById("revisitBtn"); // TODO: Premium feature
+  // const keepGoingBtn = document.getElementById("keepGoingBtn"); // TODO: Premium feature
 
   const restartOverlay = document.getElementById("restartOverlay");
   const restartConfirmBtn = document.getElementById("restartConfirmBtn");
@@ -58,6 +62,8 @@ document.addEventListener("DOMContentLoaded", () => {
   const BREATH_PAUSE_TRIGGER_KEY = "birdleaf-breath-pause-trigger";
   const BREATH_PAUSE_SHOWN_KEY = "birdleaf-breath-pause-shown";
   const SAVE_SCHEMA_VERSION = 2;
+
+  let skipCheckpoint = false;
   const START_LABEL = "Start/Continue";
   const CONTINUE_LABEL = "Start/Continue";
   const PHASE_TRANSITION_DELAY_MS = 340;
@@ -75,34 +81,47 @@ document.addEventListener("DOMContentLoaded", () => {
   ];
 
   /* DATA */
+  // Centralized function to generate shuffled words from valuesData
+  // count: optional number of words (default: all words)
+  function generateWords(count = null) {
+    const allWords = shuffle(
+      Object.entries(valuesData).flatMap(([value, list]) =>
+        list.map(word => ({ word, value }))
+      )
+    );
+    if (count && count < allWords.length) {
+      return allWords.slice(0, count);
+    }
+    return allWords;
+  }
+
   let hasSavedWordProgress = false;
-  let words;
+  let words = null; // Will be set when user chooses a mode
+  let saveTimeoutId = null;
+
   try {
     const saved = localStorage.getItem(PROGRESS_STORAGE_KEY);
     if (saved) {
       const progress = JSON.parse(saved);
       if (hasValidSavedWords(progress.words)) {
         words = progress.words;
-      } else {
-        words = shuffle(
-          Object.entries(valuesData).flatMap(([value, list]) =>
-            list.map(word => ({ word, value }))
-          )
-        );
+        // Restore saved session
+        startOptions.classList.add("hidden");
+        startBtn.classList.remove("hidden");
+        startBtn.textContent = "Continue";
+        startBtn.onclick = () => {
+          loadProgress();
+          if (state.mode === "words") {
+            runPhaseTransition(() => {
+              showWordScreen();
+              renderWord();
+            });
+          }
+        };
       }
-    } else {
-      words = shuffle(
-        Object.entries(valuesData).flatMap(([value, list]) =>
-          list.map(word => ({ word, value }))
-        )
-      );
     }
   } catch (e) {
-    words = shuffle(
-      Object.entries(valuesData).flatMap(([value, list]) =>
-        list.map(word => ({ word, value }))
-      )
-    );
+    // No words yet, user will choose a mode
   }
 
   /* UTILITY */
@@ -168,6 +187,40 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   };
 
+  // Quick mode: ~150 words
+  startQuickBtn.onclick = () => {
+    words = generateWords(150);
+    startOptions.classList.add("hidden");
+    startBtn.classList.remove("hidden");
+    startBtn.textContent = "Start Quick";
+    startBtn.onclick = () => {
+      state.mode = "words";
+      finalRanking = null;
+      runPhaseTransition(() => {
+        showWordScreen();
+        renderWord();
+        saveProgress();
+      });
+    };
+  };
+
+  // Full mode: all words
+  startFullBtn.onclick = () => {
+    words = generateWords();
+    startOptions.classList.add("hidden");
+    startBtn.classList.remove("hidden");
+    startBtn.textContent = "Start Full";
+    startBtn.onclick = () => {
+      state.mode = "words";
+      finalRanking = null;
+      runPhaseTransition(() => {
+        showWordScreen();
+        renderWord();
+        saveProgress();
+      });
+    };
+  };
+
   /* WORD PHASE */
   function renderWord() {
     hideBreathPause();
@@ -197,9 +250,16 @@ document.addEventListener("DOMContentLoaded", () => {
     wordEl.textContent = currentWord.word;
     wordEl.classList.add("fade-in");
 
-    if (state.currentIndex > 0 && state.currentIndex % 50 === 0) {
-      checkpointOverlay.classList.remove("hidden");
-    }
+    // Show/hide Previous button based on position
+    prevBtn.style.visibility = state.currentIndex > 0 ? "visible" : "hidden";
+
+    // Only show checkpoint on regular word progression, not after revisit
+    // TODO: Premium feature - re-enable later
+    // if (state.currentIndex > 0 && state.currentIndex % 50 === 0 && !skipCheckpoint) {
+    //   checkpointOverlay.classList.remove("hidden");
+    // }
+    // Reset the flag after checking
+    // skipCheckpoint = false;
   }
 
   function handleAnswer(delta) {
@@ -212,23 +272,32 @@ document.addEventListener("DOMContentLoaded", () => {
       showBreathPause();
     }
 
-    saveProgress();
+    // Use throttled save for word answers
+    throttledSave();
   }
 
   feelsBtn.onclick = () => handleAnswer(1);
-  neutralBtn.onclick = () => handleAnswer(0);
-  notBtn.onclick = () => handleAnswer(-1);
+  notBtn.onclick = () => handleAnswer(0); // 0 means delete
 
-  revisitBtn.onclick = () => {
-    checkpointOverlay.classList.add("hidden");
-    rewind(50);
-    renderWord();
-    saveProgress();
+  prevBtn.onclick = () => {
+    if (state.currentIndex > 0) {
+      rewind(1);
+      renderWord();
+      saveProgress();
+    }
   };
 
-  keepGoingBtn.onclick = () => {
-    checkpointOverlay.classList.add("hidden");
-  };
+  // revisitBtn.onclick = () => { // TODO: Premium feature
+  //   checkpointOverlay.classList.add("hidden");
+  //   skipCheckpoint = true;
+  //   rewind(50);
+  //   renderWord();
+  //   saveProgress();
+  // };
+
+  // keepGoingBtn.onclick = () => { // TODO: Premium feature
+  //   checkpointOverlay.classList.add("hidden");
+  // };
 
   resultsPrintBtn.onclick = () => window.print();
 
@@ -265,6 +334,10 @@ document.addEventListener("DOMContentLoaded", () => {
       li.classList.add("fade-in");
       resultsList.appendChild(li);
     });
+
+    // Add print date for PDF
+    const printDate = new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
+    resultsView.querySelector("h2").setAttribute("data-print-date", printDate);
 
     resultsView.classList.remove("hidden");
     fadeInPhase(resultsView);
@@ -377,6 +450,11 @@ document.addEventListener("DOMContentLoaded", () => {
       : (prioritizer ? prioritizer.finalize() : []);
 
     renderFinalRanking(finalRanking);
+
+    // Add print date for PDF
+    const printDate = new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
+    finalView.querySelector("h2").setAttribute("data-print-date", printDate);
+
     fadeInPhase(finalView);
     saveProgress();
   }
@@ -472,6 +550,10 @@ document.addEventListener("DOMContentLoaded", () => {
     contextToggleBtn.onclick = () => {
       const shouldOpen = contextPanel.classList.contains("hidden");
       setContextPanelOpen(shouldOpen);
+      // If opening and 'Something specific' is selected, focus the input
+      if (shouldOpen && selectedContext === "Something specific" && contextCustomInput) {
+        contextCustomInput.focus();
+      }
     };
 
     if (contextCloseBtn) {
@@ -490,6 +572,12 @@ document.addEventListener("DOMContentLoaded", () => {
           return;
         }
 
+        // If clicking "Something specific", open input instead of closing
+        if (nextContext === "Something specific") {
+          contextCustomInput.focus();
+          return;
+        }
+
         if (selectedContext === nextContext) {
           selectedContext = null;
         } else {
@@ -501,6 +589,37 @@ document.addEventListener("DOMContentLoaded", () => {
         setContextPanelOpen(false);
       };
     });
+
+    // Custom input handling
+    if (contextCustomInput) {
+      contextCustomInput.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+          const customValue = contextCustomInput.value.trim();
+          if (customValue) {
+            if (selectedContext === customValue) {
+              selectedContext = null;
+            } else {
+              selectedContext = customValue;
+            }
+            contextCustomInput.value = "";
+            saveSelectedContext();
+            updateContextUI();
+            setContextPanelOpen(false);
+          }
+        }
+      });
+
+      // Update UI when custom input changes
+      contextCustomInput.addEventListener("input", () => {
+        const customValue = contextCustomInput.value.trim();
+        // Highlight input if it matches current selection
+        if (customValue && customValue === selectedContext) {
+          contextCustomInput.classList.add("selected");
+        } else {
+          contextCustomInput.classList.remove("selected");
+        }
+      });
+    }
   }
 
   function setContextPanelOpen(isOpen) {
@@ -538,6 +657,18 @@ document.addEventListener("DOMContentLoaded", () => {
       button.classList.toggle("selected", isSelected);
       button.setAttribute("aria-pressed", isSelected ? "true" : "false");
     });
+
+    // Handle custom input styling
+    if (contextCustomInput) {
+      if (hasContext && !contextOptionBtns.some(btn => btn.dataset.contextValue === selectedContext)) {
+        // Custom value is selected - style the input
+        contextCustomInput.classList.add("selected");
+        contextCustomInput.placeholder = selectedContext;
+      } else {
+        contextCustomInput.classList.remove("selected");
+        contextCustomInput.placeholder = "Or type your own...";
+      }
+    }
   }
 
   function loadSavedContext() {
@@ -572,6 +703,23 @@ document.addEventListener("DOMContentLoaded", () => {
     sessionStorage.setItem(RETURN_TO_START_KEY, "1");
   }
 
+  // Throttled save - waits 500ms after last call before actually saving
+  function throttledSave() {
+    if (autoSaveSuspended) {
+      return;
+    }
+
+    if (saveTimeoutId) {
+      clearTimeout(saveTimeoutId);
+    }
+
+    saveTimeoutId = setTimeout(() => {
+      saveProgress();
+      saveTimeoutId = null;
+    }, 500);
+  }
+
+  // Immediate save for critical operations
   function saveProgress() {
     if (autoSaveSuspended) {
       return;
@@ -760,7 +908,25 @@ document.addEventListener("DOMContentLoaded", () => {
     cancelPhaseTransition();
     hideTransientOverlays();
     updateStartButtonLabel();
-    startBtn.classList.remove("hidden");
+    // Only show mode options at the very beginning (before any words chosen)
+    // After that, show Continue button
+    if (words && words.length > 0) {
+      startOptions.classList.add("hidden");
+      startBtn.classList.remove("hidden");
+      startBtn.textContent = "Continue";
+      startBtn.onclick = () => {
+        loadProgress();
+        if (state.mode === "words") {
+          runPhaseTransition(() => {
+            showWordScreen();
+            renderWord();
+          });
+        }
+      };
+    } else {
+      startOptions.classList.remove("hidden");
+      startBtn.classList.add("hidden");
+    }
     orientation.classList.remove("hidden");
 
     app.classList.add("hidden");
@@ -770,11 +936,10 @@ document.addEventListener("DOMContentLoaded", () => {
     prioritizeView.classList.add("hidden");
     finalView.classList.add("hidden");
     fadeInPhase(orientation);
-    fadeInPhase(startBtn);
   }
 
   function hideTransientOverlays() {
-    checkpointOverlay.classList.add("hidden");
+    // checkpointOverlay.classList.add("hidden"); // TODO: Premium feature
     restartOverlay.classList.add("hidden");
     hideBreathPause();
     setContextPanelOpen(false);
@@ -838,55 +1003,63 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function restorePrioritizeState(progress) {
-    const prioritizeState = progress.prioritize;
-    if (!prioritizeState || typeof prioritizeState !== "object") {
-      return false;
-    }
+    try {
+      const prioritizeState = progress.prioritize;
+      if (!prioritizeState || typeof prioritizeState !== "object") {
+        console.warn("Invalid prioritize state - missing or invalid");
+        return false;
+      }
 
-    const snapshot = prioritizeState.engineSnapshot;
-    if (!snapshot || typeof snapshot !== "object" || !Array.isArray(snapshot.values)) {
-      return false;
-    }
+      const snapshot = prioritizeState.engineSnapshot;
+      if (!snapshot || typeof snapshot !== "object" || !Array.isArray(snapshot.values)) {
+        console.warn("Invalid prioritize state - missing snapshot");
+        return false;
+      }
 
-    const snapshotValues = snapshot.values.filter(value => typeof value === "string");
-    if (snapshotValues.length === 0) {
-      return false;
-    }
+      const snapshotValues = snapshot.values.filter(value => typeof value === "string");
+      if (snapshotValues.length === 0) {
+        console.warn("Invalid prioritize state - no valid values");
+        return false;
+      }
 
-    prioritizer = createPrioritizer(snapshotValues, snapshot);
-    wordLastSide.clear();
-    objectToWordLastSide(prioritizeState.wordLastSide).forEach((side, value) => {
-      wordLastSide.set(value, side);
-    });
+      prioritizer = createPrioritizer(snapshotValues, snapshot);
+      wordLastSide.clear();
+      objectToWordLastSide(prioritizeState.wordLastSide).forEach((side, value) => {
+        wordLastSide.set(value, side);
+      });
 
-    const restoredComparison = isComparisonEntry(prioritizeState.currentComparison)
-      ? { ...prioritizeState.currentComparison }
-      : null;
-    currentComparison = restoredComparison || prioritizer.getNextComparison();
+      const restoredComparison = isComparisonEntry(prioritizeState.currentComparison)
+        ? { ...prioritizeState.currentComparison }
+        : null;
+      currentComparison = restoredComparison || prioritizer.getNextComparison();
 
-    if (!currentComparison) {
-      showFinal();
+      if (!currentComparison) {
+        showFinal();
+        return true;
+      }
+
+      if (isDisplayOrderForComparison(prioritizeState.displayedOrder, currentComparison)) {
+        displayedOptionA = prioritizeState.displayedOrder.a;
+        displayedOptionB = prioritizeState.displayedOrder.b;
+      } else {
+        const displayOrder = chooseDisplayOrder(currentComparison);
+        displayedOptionA = displayOrder.a;
+        displayedOptionB = displayOrder.b;
+      }
+
+      wordLastSide.set(displayedOptionA, "A");
+      wordLastSide.set(displayedOptionB, "B");
+
+      optionABtn.textContent = displayedOptionA;
+      optionBBtn.textContent = displayedOptionB;
+
+      showPrioritizeScreen();
+      saveProgress();
       return true;
+    } catch (error) {
+      console.error("Failed to restore prioritize state:", error);
+      return false;
     }
-
-    if (isDisplayOrderForComparison(prioritizeState.displayedOrder, currentComparison)) {
-      displayedOptionA = prioritizeState.displayedOrder.a;
-      displayedOptionB = prioritizeState.displayedOrder.b;
-    } else {
-      const displayOrder = chooseDisplayOrder(currentComparison);
-      displayedOptionA = displayOrder.a;
-      displayedOptionB = displayOrder.b;
-    }
-
-    wordLastSide.set(displayedOptionA, "A");
-    wordLastSide.set(displayedOptionB, "B");
-
-    optionABtn.textContent = displayedOptionA;
-    optionBBtn.textContent = displayedOptionB;
-
-    showPrioritizeScreen();
-    saveProgress();
-    return true;
   }
 
   function loadProgress() {
@@ -956,6 +1129,10 @@ document.addEventListener("DOMContentLoaded", () => {
   function performRestart() {
     restartOverlay.classList.add("hidden");
     autoSaveSuspended = true;
+    // Clear any pending throttled saves
+    if (saveTimeoutId) {
+      clearTimeout(saveTimeoutId);
+    }
     localStorage.removeItem(PROGRESS_STORAGE_KEY);
     sessionStorage.removeItem(RETURN_TO_START_KEY);
     resetState();

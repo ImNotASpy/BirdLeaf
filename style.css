@@ -15,6 +15,21 @@ body {
   align-items: center;
 }
 
+/* Start mode buttons */
+#startOptions {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  margin-bottom: 1.5rem;
+}
+
+.startModeBtn {
+  flex: 1;
+  max-width: 200px;
+  min-height: 60px;
+  font-size: 1rem;
+}
+
 /* Instructions */
 
 #orientation {
@@ -142,6 +157,45 @@ body {
   color: #ecebe7;
 }
 
+.contextCustom {
+  display: flex;
+  justify-content: center;
+  margin-top: 0.5rem;
+}
+
+.contextCustomInput {
+  min-height: 34px;
+  padding: 0.4rem 0.9rem;
+  font-size: 0.9rem;
+  border-radius: 999px;
+  border: 1px solid #b7c2b4;
+  background: #ecebe7;
+  color: #444;
+  text-align: center;
+  width: 200px;
+  font-family: inherit;
+}
+
+.contextCustomInput::placeholder {
+  color: #888;
+}
+
+.contextCustomInput:focus {
+  outline: none;
+  border-color: #9FAF9B;
+  box-shadow: 0 0 0 2px rgba(159, 175, 155, 0.3);
+}
+
+.contextCustomInput.selected {
+  background: #9FAF9B;
+  border-color: #8d9c89;
+  color: #ecebe7;
+}
+
+.contextCustomInput.selected::placeholder {
+  color: #d0d0d0;
+}
+
 .contextClose {
   margin-top: 0.65rem;
   min-height: 34px;
@@ -180,6 +234,21 @@ h2 {
   flex: 1 1 160px;
   min-width: 0;
   max-width: 220px;
+}
+
+button.secondary {
+  flex: 0 0 auto;
+  min-width: 100px;
+  max-width: 120px;
+  font-size: 0.9rem;
+  padding: 0.875rem 1rem;
+  border-color: #ccc;
+  background: transparent;
+}
+
+button.secondary:hover {
+  background: #ddd;
+  color: #444;
 }
 
 button {
@@ -467,6 +536,16 @@ button:active {
     width: min(420px, 100%);
   }
 
+  #startOptions {
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .startModeBtn {
+    max-width: none;
+    width: min(420px, 100%);
+  }
+
   .checkpointModal {
     padding: 1.35rem 1.1rem;
     border-radius: 16px;
@@ -489,11 +568,21 @@ button:active {
 
 /* Print styles */
 @media print {
-  body {
-    background: white !important;
-    color: black !important;
+  /* Try to remove browser header/footer (date, time, page URL) */
+  @page {
+    margin: 0.75in 0.5in 0.75in 0.5in;
+    size: auto;
   }
 
+  body {
+    background: white !important;
+    color: #1a1a1a !important;
+    font-family: Georgia, "Times New Roman", serif !important;
+    margin: 0;
+    padding: 0;
+  }
+
+  /* Hide everything except results/final */
   #orientation,
   #app,
   #prioritizeView,
@@ -502,15 +591,17 @@ button:active {
   #restartOverlay,
   footer,
   button,
-  .disclaimer {
+  .disclaimer,
+  .outputActions {
     display: none !important;
   }
 
+  /* Print container */
   #resultsView,
   #finalView {
-    max-width: 600px;
+    max-width: 700px;
     margin: 0 auto;
-    padding: 0;
+    padding: 40px 0;
   }
 
   #resultsView.hidden,
@@ -523,24 +614,101 @@ button:active {
     display: block !important;
   }
 
-  #resultsView:not(.hidden) h2,
-  #finalView:not(.hidden) h2 {
-    font-size: 24px;
-    margin-bottom: 20px;
-    text-align: center !important;
+  /* Header */
+  #resultsView:not(.hidden)::before,
+  #finalView:not(.hidden)::before {
+    content: "";
+    display: none;
   }
 
+  #resultsView:not(.hidden) h2::after,
+  #finalView:not(.hidden) h2::after {
+    content: "" !important;
+    display: none !important;
+  }
+
+  /* BirdLeaf logo for print, but not in browser header/footer */
+  #resultsView:not(.hidden)::before,
+  #finalView:not(.hidden)::before {
+    content: "BIRDLEAF";
+    display: block;
+    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif !important;
+    font-size: 16px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: #666;
+    text-align: center;
+    margin-bottom: 40px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid #ddd;
+  }
+
+  /* Fix spacing for 10. in ordered list */
+  #finalList li::before {
+    content: counter(list-counter) ". ";
+  }
+
+  /* Values list */
   #resultsList,
   #finalList {
     font-size: 18px;
-    line-height: 1.6;
+    line-height: 2;
     padding-left: 0;
-    text-align: center;
+    text-align: left;
+    margin: 40px 0;
+    list-style: none;
   }
 
   #resultsList li,
   #finalList li {
-    margin-bottom: 15px;
+    margin-bottom: 0;
+    padding: 8px 0;
+    border-bottom: 1px solid #f0f0f0;
+    text-align: left !important;
+    position: relative;
+    padding-left: 30px;
+  }
+
+  #resultsList li::before,
+  #finalList li::before {
+    content: "•";
+    position: absolute;
+    left: 10px;
+    color: #999;
+  }
+
+  #finalList li {
+    list-style: none;
+    padding-left: 30px;
+    counter-increment: list-counter;
+  }
+
+  #finalList li::before {
+    content: counter(list-counter) ".";
+  }
+
+  /* Disclaimer */
+  .disclaimer {
+    display: block !important;
+    font-size: 12px !important;
+    color: #999 !important;
+    font-style: italic !important;
     text-align: center !important;
+    margin-top: 40px !important;
+    padding-top: 20px;
+    border-top: 1px solid #eee;
+  }
+
+  /* Footer - inspired by About page */
+  #resultsView:not(.hidden)::after,
+  #finalView:not(.hidden)::after {
+    content: "Bringing attention back into the body.";
+    display: block;
+    font-size: 12px;
+    font-style: italic;
+    color: #999;
+    text-align: center;
+    margin-top: 50px;
+    font-family: Georgia, "Times New Roman", serif !important;
   }
 }
