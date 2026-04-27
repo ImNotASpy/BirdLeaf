@@ -97,6 +97,27 @@ document.addEventListener("DOMContentLoaded", () => {
     return allWords;
   }
 
+  // Balanced quick mode: picks perCategory words from each category so every
+  // category is represented, then shuffles the result.
+  function generateWordsBalanced(perCategory = 5) {
+    const seen = new Set();
+    const result = [];
+    for (const [value, list] of Object.entries(valuesData)) {
+      const shuffledList = shuffle(list);
+      let picked = 0;
+      for (const word of shuffledList) {
+        if (picked >= perCategory) break;
+        const key = word.toLowerCase();
+        if (!seen.has(key)) {
+          seen.add(key);
+          result.push({ word, value });
+          picked++;
+        }
+      }
+    }
+    return shuffle(result);
+  }
+
   let hasSavedWordProgress = false;
   let words = null; // Will be set when user chooses a mode
   let saveTimeoutId = null;
@@ -187,9 +208,9 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   };
 
-  // Quick mode: ~150 words
+  // Quick mode: ~5 words per category (~155 words), every category guaranteed
   startQuickBtn.onclick = () => {
-    words = generateWords(150);
+    words = generateWordsBalanced(5);
     startOptions.classList.add("hidden");
     startBtn.classList.remove("hidden");
     startBtn.textContent = "Start Quick";
@@ -763,10 +784,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function updateStartButtonLabel() {
     startBtn.textContent = hasSavedWordProgress ? CONTINUE_LABEL : START_LABEL;
-  }
-
-  function randomInt(min, max) {
-    return Math.floor(Math.random() * (max - min + 1)) + min;
   }
 
   function runPhaseTransition(showNextPhase) {

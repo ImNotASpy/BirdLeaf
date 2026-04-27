@@ -1,10 +1,13 @@
 // prioritizationEngine.js
 // Uses merge sort to rank values in O(n log n) comparisons instead of O(n²).
 
+const SNAPSHOT_VERSION = 1;
+
 function isValidSnapshot(snapshot) {
   return (
     snapshot &&
     typeof snapshot === "object" &&
+    snapshot.snapshotVersion === SNAPSHOT_VERSION &&
     Array.isArray(snapshot.values) &&
     Array.isArray(snapshot.runs)
   );
@@ -116,6 +119,7 @@ export function createPrioritizer(values, snapshot = null) {
 
   function serialize() {
     return {
+      snapshotVersion: SNAPSHOT_VERSION,
       values: [...orderedValues],
       runs: runs.map(r => [...r]),
       mergeState: mergeState
