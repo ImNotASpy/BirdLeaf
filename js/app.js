@@ -21,7 +21,6 @@ document.addEventListener("DOMContentLoaded", () => {
   const contextCustomInput = document.getElementById("contextCustomInput");
   const contextOptionBtns = Array.from(document.querySelectorAll(".contextOption"));
   const wordEl = document.getElementById("word");
-  const breathPauseEl = document.getElementById("breathPause");
   const mainButtons = document.getElementById("mainButtons");
 
   const feelsBtn = document.getElementById("feelsBtn");
@@ -59,8 +58,6 @@ document.addEventListener("DOMContentLoaded", () => {
   const RETURN_TO_START_KEY = "birdleaf-return-start";
   const PROGRESS_STORAGE_KEY = "birdleaf-progress";
   const CONTEXT_STORAGE_KEY = "birdleaf-reflection-context";
-  const BREATH_PAUSE_TRIGGER_KEY = "birdleaf-breath-pause-trigger";
-  const BREATH_PAUSE_SHOWN_KEY = "birdleaf-breath-pause-shown";
   const SAVE_SCHEMA_VERSION = 2;
 
   let skipCheckpoint = false;
@@ -84,11 +81,16 @@ document.addEventListener("DOMContentLoaded", () => {
   // Centralized function to generate shuffled words from valuesData
   // count: optional number of words (default: all words)
   function generateWords(count = null) {
-    const allWords = shuffle(
-      Object.entries(valuesData).flatMap(([value, list]) =>
-        list.map(word => ({ word, value }))
-      )
-    );
+    const seen = new Set();
+    const dedupedWords = Object.entries(valuesData).flatMap(([value, list]) =>
+      list.map(word => ({ word, value }))
+    ).filter(entry => {
+      const key = entry.word.toLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+    const allWords = shuffle(dedupedWords);
     if (count && count < allWords.length) {
       return allWords.slice(0, count);
     }
@@ -132,8 +134,6 @@ document.addEventListener("DOMContentLoaded", () => {
   let displayedOptionB = null;
   let finalRanking = null;
   let autoSaveSuspended = false;
-  let breathPauseTriggerIndex = null;
-  let hasShownBreathPause = sessionStorage.getItem(BREATH_PAUSE_SHOWN_KEY) === "1";
   let lastReflectPrompt = null;
   let selectedContext = null;
   let phaseTransitionTimeoutId = null;
@@ -223,14 +223,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
   /* WORD PHASE */
   function renderWord() {
-    hideBreathPause();
-
     if (!words || !Array.isArray(words) || words.length === 0) {
       wordEl.textContent = "Error: No words loaded";
       return;
     }
-
-    ensureBreathPauseTrigger();
 
     if (state.currentIndex >= words.length) {
       runPhaseTransition(() => {
@@ -267,10 +263,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const { value } = words[answeredIndex];
     answerCurrentWord(value, delta);
     renderWord();
-
-    if (answeredIndex === breathPauseTriggerIndex) {
-      showBreathPause();
-    }
 
     // Use throttled save for word answers
     throttledSave();
@@ -773,53 +765,6 @@ document.addEventListener("DOMContentLoaded", () => {
     startBtn.textContent = hasSavedWordProgress ? CONTINUE_LABEL : START_LABEL;
   }
 
-  function ensureBreathPauseTrigger() {
-    if (hasShownBreathPause || !Array.isArray(words) || words.length < 2) {
-      return;
-    }
-
-    const maxTriggerIndex = words.length - 2;
-    const minTriggerIndex = Math.min(Math.max(0, state.currentIndex), maxTriggerIndex);
-
-    if (
-      Number.isInteger(breathPauseTriggerIndex) &&
-      breathPauseTriggerIndex >= minTriggerIndex &&
-      breathPauseTriggerIndex <= maxTriggerIndex
-    ) {
-      return;
-    }
-
-    const savedTrigger = Number.parseInt(sessionStorage.getItem(BREATH_PAUSE_TRIGGER_KEY) || "", 10);
-    if (
-      Number.isInteger(savedTrigger) &&
-      savedTrigger >= minTriggerIndex &&
-      savedTrigger <= maxTriggerIndex
-    ) {
-      breathPauseTriggerIndex = savedTrigger;
-      return;
-    }
-
-    breathPauseTriggerIndex = randomInt(minTriggerIndex, maxTriggerIndex);
-    sessionStorage.setItem(BREATH_PAUSE_TRIGGER_KEY, String(breathPauseTriggerIndex));
-  }
-
-  function showBreathPause() {
-    if (hasShownBreathPause || !breathPauseEl) {
-      return;
-    }
-
-    hasShownBreathPause = true;
-    sessionStorage.setItem(BREATH_PAUSE_SHOWN_KEY, "1");
-    breathPauseEl.classList.remove("hidden");
-  }
-
-  function hideBreathPause() {
-    if (!breathPauseEl) {
-      return;
-    }
-    breathPauseEl.classList.add("hidden");
-  }
-
   function randomInt(min, max) {
     return Math.floor(Math.random() * (max - min + 1)) + min;
   }
@@ -862,7 +807,6 @@ document.addEventListener("DOMContentLoaded", () => {
     resultsView.classList.add("hidden");
     prioritizeView.classList.add("hidden");
     finalView.classList.add("hidden");
-    hideBreathPause();
   }
 
   function fadeInPhase(element) {
@@ -941,7 +885,6 @@ document.addEventListener("DOMContentLoaded", () => {
   function hideTransientOverlays() {
     // checkpointOverlay.classList.add("hidden"); // TODO: Premium feature
     restartOverlay.classList.add("hidden");
-    hideBreathPause();
     setContextPanelOpen(false);
     resetReflectPanels();
   }

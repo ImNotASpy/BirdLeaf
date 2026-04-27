@@ -56,6 +56,21 @@ body {
   font-size: 0.95rem;
 }
 
+.how-to-link {
+  display: inline-block;
+  margin-top: 0.25rem;
+  font-size: 0.9rem;
+  color: #5a7055;
+  text-decoration: none;
+  border-bottom: 1px solid #9FAF9B;
+  transition: color 0.2s ease, border-color 0.2s ease;
+}
+
+.how-to-link:hover {
+  color: #3d5239;
+  border-color: #5a7055;
+}
+
 /* App */
 
 #app,
